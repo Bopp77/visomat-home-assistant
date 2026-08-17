@@ -1,0 +1,18 @@
+# visomat comfort soft BT (BLE) -> Home Assistant
+#
+# Benötigt Zugriff auf BlueZ/D-Bus des Hosts. Start:
+#   docker compose up -d --build
+
+services:
+  visomat-bt:
+    build: .
+    container_name: visomat-bt
+    restart: unless-stopped
+    network_mode: host                 # BLE via hci0
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - /run/dbus:/run/dbus:ro
+      - /var/run/dbus:/var/run/dbus:ro

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visomat-home-assistant"
+version = "0.1.0"
+description = "visomat comfort soft BT (UEBE Medical) BLE gateway for Home Assistant"
+requires-python = ">=3.11"
+dependencies = [
+    "bleak>=0.21",
+    "paho-mqtt>=1.6,<2.0",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.4",
+]
+
+[tool.setuptools.packages.find]
+include = ["visomat_bt*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = ["DTZ001", "DTZ005", "DTZ011"]
+
+[tool.pytest.ini_options]
+testpaths = ["visomat_bt/tests"]

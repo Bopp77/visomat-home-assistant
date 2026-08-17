@@ -1,0 +1,88 @@
+# visomat comfort soft BT → Home Assistant (BLE-Gateway)
+
+Liest das Blutdruckmessgerät **visomat comfort soft BT** (UEBE Medical, Art.-Nr.
+24065) rein lokal per Bluetooth Low Energy aus. Das Gerät implementiert den
+Standard **Blood Pressure Service (0x1810)**; jede Messung kommt als
+Notification auf Characteristic **0x2A35** und wird per MQTT-Discovery als
+Home-Assistant-Entitäten veröffentlicht.
+
+Gegen ein reales Gerät verifiziert:
+
+- Advertising-Name `comfort soft BT` (statische Random-Adresse, stabil),
+  Service-UUID `0x1810` wird beworben.
+- GATT-Dump: `0x2A35` (Messung) + `0x2A49` (Feature) + `0x2A19` (Batterie)
+  + `0x180A` (Device Info). **Kein** `0x2A52` (RACP).
+- **Automatischer Offline-Sync**: Das Gerät puffert Messungen intern und sendet
+  beim Verbindungsaufbau automatisch alle gespeicherten Messwerte nacheinander
+  als Notifications. Der Dienst muss also nicht 24/7 empfangsbereit sein;
+  gesammelte Messungen werden beim nächsten Sync vollständig nachgeliefert.
+- **Device-Trusting empfohlen**: Damit BlueZ die GATT-Struktur dauerhaft cacht
+  und nicht bei jedem kurzen Sync-Fenster neu über BLE abfragen muss, das Gerät
+  einmalig als vertrauenswürdig markieren:
+  `bluetoothctl trust DD:67:E2:1E:C0:93`
+- Der Dienst nutzt einen **kontinuierlichen Scanner** mit sofortigem Connect:
+  Das visomat wirbt nur während seines kurzen Sync-Fensters (aktive Messung),
+  ein periodischer Scan mit Lücken würde dieses Fenster verpassen.
+
+## Voraussetzungen
+- Host mit BLE-Adapter (z.B. Intel AX201) und BlueZ ≥ 5.43, D-Bus erreichbar.
+- Das Gerät muss in BLE-Reichweite des Homeservers sein (~10–15 m).
+- Mosquitto-Broker in Home Assistant.
+
+## Konfiguration
+```bash
+cp config.example.yaml config.yaml
+# Abschnitt `visomat:` anpassen (ble.mac oder Name-Scan, mqtt.*)
+```
+
+| Abschnitt | Bedeutung |
+|---|---|
+| `visomat.ble.mac` | MAC (`DD:67:E2:1E:C0:93`), `auto` oder leer für Name-Scan |
+| `visomat.ble.name` | Name-Substring (`comfort soft`), falls keine MAC |
+| `visomat.ble.scan_timeout_sec` | Scan-Zeitfenster pro Versuch |
+| `visomat.ble.reconnect_delay_sec` | Pause zwischen Reconnect-Versuchen |
+| `visomat.mqtt.*` | Broker-Zugang, `base_topic` (`visomat_bt`) + Discovery-Prefix |
+
+Hinweis: Der `visomat-bt`-Container läuft mit `network_mode: host` (BLE via
+hci0) und erreicht den Mosquitto-Broker daher über dessen **Host-Adresse/IP**,
+nicht über einen Docker-DNS-Namen. In `config.yaml` ggf. `host` entsprechend
+setzen.
+
+## Start
+```bash
+docker compose up -d --build
+```
+
+## Home Assistant
+Per MQTT-Discovery erscheint das Gerät **visomat comfort soft BT** mit:
+
+- Sensoren: Systole/Diastole/Mittlerer arterieller Druck (`mmHg`), Puls (`bpm`,
+  `device_class: heart_rate`), Messzeitpunkt, Benutzer-ID, Batterie (%), Feature
+- Binär-Sensoren (diagnostisch): Körperbewegung, Manschette zu locker,
+  unregelmäßiger Puls, Puls außerhalb Bereich, falsche Messposition
+
+## Lokal entwickeln & testen
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+ruff check visomat_bt/
+pytest -q
+```
+
+## Inbetriebnahme
+1. Gerät in Sync-Bereitschaft versetzen (Messung am Gerät starten).
+2. `ble.mac` setzen (per `bluetoothctl scan on` ermitteln) und Dienst starten.
+3. Messung durchführen → Log prüfen (`published measurement: ...`), Werte gegen
+   Geräte-Display plausibilisieren.
+
+## Projektstruktur
+```
+visomat_bt/
+├── protocol.py      # BLS-Parser: Flags, IEEE-11073 SFLOAT, Timestamp, Status, Feature
+├── transport.py     # BleTransport (bleak): Connect, Subscribe 0x2A35/0x2A19, Device-Info
+├── listener.py      # Kontinuierlicher Scanner + Reconnect-Watchdog
+├── publisher.py     # MQTT-Discovery + State-Publishing
+├── config.py        # config.yaml (Sektion `visomat:`)
+├── main.py          # Entrypoint
+└── tests/           # Parser- und Publisher-Tests gegen Hex-Vektoren
+```

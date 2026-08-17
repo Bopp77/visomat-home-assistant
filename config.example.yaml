@@ -1,0 +1,19 @@
+# visomat comfort soft BT (UEBE Medical) - BLE-Gateway-Konfiguration
+#
+# Genutzte Services: Blood Pressure 0x1810 / Char 0x2A35 (Live-Messungen),
+#                    Battery 0x180F, Device Information 0x180A.
+visomat:
+  ble:
+    mac: ""                        # "auto" oder MAC (AA:BB:CC:DD:EE:FF); leer => Scan nach Name
+    name: "comfort soft"           # Name-Substring, falls keine MAC gesetzt
+    adapter: "hci0"
+    scan_timeout_sec: 15
+    scan_interval_sec: 30          # Rescan, wenn Gerät nicht erreichbar
+    reconnect_delay_sec: 5         # Pause zwischen Reconnect-Versuchen
+  mqtt:
+    host: "core-mosquitto"
+    port: 1883
+    username: "visomat"
+    password: ""
+    base_topic: "visomat_bt"
+    discovery_prefix: "homeassistant"
