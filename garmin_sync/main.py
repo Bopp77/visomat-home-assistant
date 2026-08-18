@@ -21,6 +21,10 @@ async def amain(cfg, login_only: bool = False) -> None:
         LOGGER.info("Login abgeschlossen, Tokens gespeichert")
         return
 
+    if not cfg.enabled:
+        LOGGER.info("garmin_sync deaktiviert (garmin_sync.enabled: false), beende")
+        return
+
     syncer.login()
     syncer.start()
 
