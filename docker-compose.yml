@@ -17,11 +17,13 @@ services:
 
   # Synchronisiert visomat-Messwerte (MQTT) nach Garmin Connect.
   # Aktivierung: garmin_sync.enabled: true in config.yaml.
+  # Start: docker compose --profile garmin up -d
   garmin-sync:
     build: .
     container_name: garmin-sync
     restart: unless-stopped
     command: ["python", "-m", "garmin_sync.main"]
+    profiles: ["garmin"]
     networks:
       - default
     volumes:

@@ -33,6 +33,7 @@ services:
     container_name: garmin-sync
     restart: unless-stopped
     command: ["python", "-m", "garmin_sync.main"]
+    profiles: ["garmin"]             # nur mit --profile garmin, wenn aktiviert
     volumes:
       - /opt/visomat/config.yaml:/app/config.yaml:ro
       - garmin-tokens:/root/.garminconnect
