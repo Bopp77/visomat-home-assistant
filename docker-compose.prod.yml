@@ -16,13 +16,9 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "visomat_bt.main"]
     network_mode: host                 # BLE via hci0
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+    privileged: true                   # Zugriff auf den Host-HCI (kein BlueZ am Host nötig)
     volumes:
       - /opt/visomat/config.yaml:/app/config.yaml:ro
-      - /run/dbus:/run/dbus:ro
-      - /var/run/dbus:/var/run/dbus:ro
 
   garmin-sync:
     image: ghcr.io/bopp77/visomat-home-assistant:latest
