@@ -47,11 +47,38 @@ Hinweis: Der `visomat-bt`-Container läuft mit `network_mode: host` (BLE via
 hci0) und erreicht den Mosquitto-Broker daher über dessen **Host-Adresse/IP**,
 nicht über einen Docker-DNS-Namen. In `config.yaml` ggf. `host` entsprechend
 setzen.
-
-## Start
+## Start (lokal / Entwicklung)
 ```bash
 docker compose up -d --build
 ```
+
+## Produktiv-Deployment (ghcr.io + Portainer)
+
+### 1. GitHub Actions baut das Image automatisch
+Bei jedem Push auf `main` (oder Tag `v*`) baut der Workflow
+`.github/workflows/build-push-ghcr.yml` das Image und pusht es nach
+`ghcr.io/bopp77/visomat-home-assistant` (`:latest`, `:main`, bzw. `:vX.Y.Z`).
+
+### 2. Portainer-Stack auf dem Produktiv-Host
+Auf `192.168.178.102` (Portainer-Web-UI → **Stacks → Add stack**):
+
+- **Voraussetzungen auf dem Host:**
+  - BlueZ/D-Bus für BLE, Gerät einmalig als trusted markieren:
+    `bluetoothctl trust DD:67:E2:1E:C0:93`
+  - Konfiguration nach `/opt/visomat/config.yaml` legen
+    (Vorlage: `config.prod.example.yaml`; Sektionen `visomat:` + `garmin_sync:`)
+- **Stack-YAML:** `docker-compose.prod.yml` aus diesem Repo verwenden
+  (image-basiert von ghcr.io, Mount-Pfad `/opt/visomat/config.yaml`).
+- Nach dem Anlegen einmalig den Garmin-MFA-Login ausführen:
+  ```bash
+  docker compose -f /opt/visomat/docker-compose.prod.yml run --rm garmin-sync python -m garmin_sync.main --login
+  ```
+  (Tokens landen persistent im Volume `garmin-tokens`.)
+
+### 3. Update des Stacks
+Push auf `main` → ghcr-Image `:latest` neu → in Portainer **Stack → Update**
+(Image neu pullen / Stack neu deployen).
+
 
 ## Home Assistant
 Per MQTT-Discovery erscheint das Gerät **visomat comfort soft BT** mit:

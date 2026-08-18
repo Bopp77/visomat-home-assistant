@@ -1,0 +1,33 @@
+# Produktive Konfiguration für 192.168.178.102 (/opt/visomat/config.yaml).
+# Nach Anlage: Messung am Gerät triggern, Werte gegen Display prüfen.
+
+visomat:
+  ble:
+    mac: "DD:67:E2:1E:C0:93"
+    name: "comfort soft"
+    adapter: "hci0"
+    scan_timeout_sec: 5
+    scan_interval_sec: 2
+    reconnect_delay_sec: 1
+    timeout_sec: 15
+  mqtt:
+    host: "192.168.178.105"        # Home Assistant / Mosquitto
+    port: 1883
+    username: "bopp"
+    password: ""
+    base_topic: "visomat_bt"
+    discovery_prefix: "homeassistant"
+
+garmin_sync:
+  enabled: true
+  mqtt:
+    host: "192.168.178.105"
+    port: 1883
+    username: "bopp"
+    password: ""
+    topic_base: "visomat_bt"
+  garmin:
+    email: ""                      # Garmin-Konto (E-Mail)
+    password: ""                   # Garmin-Passwort (einmalig für --login)
+    timezone: "Europe/Berlin"
+    token_path: "~/.garminconnect"

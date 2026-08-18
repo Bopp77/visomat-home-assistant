@@ -1,0 +1,37 @@
+# Produktiver Stack für Portainer (image-basiert von ghcr.io).
+#
+# Voraussetzungen auf dem Host (192.168.178.102):
+#   - BlueZ/D-Bus für BLE (visomat-bt), Gerät einmalig als trusted markieren:
+#       bluetoothctl trust DD:67:E2:1E:C0:93
+#   - config.yaml (Sektionen `visomat:` und `garmin_sync:`) liegt im
+#     Stack-Verzeichnis, das unten gemountet wird.
+#
+# In Portainer anlegen: Stacks -> Add stack -> Repository (oder "Web editor"
+# mit dieser Datei) -> Deployment pfad/volume-pfad anpassen.
+
+services:
+  visomat-bt:
+    image: ghcr.io/bopp77/visomat-home-assistant:latest
+    container_name: visomat-bt
+    restart: unless-stopped
+    command: ["python", "-m", "visomat_bt.main"]
+    network_mode: host                 # BLE via hci0
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - /opt/visomat/config.yaml:/app/config.yaml:ro
+      - /run/dbus:/run/dbus:ro
+      - /var/run/dbus:/var/run/dbus:ro
+
+  garmin-sync:
+    image: ghcr.io/bopp77/visomat-home-assistant:latest
+    container_name: garmin-sync
+    restart: unless-stopped
+    command: ["python", "-m", "garmin_sync.main"]
+    volumes:
+      - /opt/visomat/config.yaml:/app/config.yaml:ro
+      - garmin-tokens:/root/.garminconnect
+
+volumes:
+  garmin-tokens:
