@@ -1,13 +1,20 @@
 # Produktiver Stack für Portainer (image-basiert von ghcr.io).
 #
 # Voraussetzungen auf dem Host (192.168.178.102):
-#   - BlueZ/D-Bus für BLE (visomat-bt), Gerät einmalig als trusted markieren:
-#       bluetoothctl trust DD:67:E2:1E:C0:93
-#   - config.yaml (Sektionen `visomat:` und `garmin_sync:`) liegt im
-#     Stack-Verzeichnis, das unten gemountet wird.
+#   - USB-BLE-Dongle durchgereicht (hier: Realtek RTL8761BU), Firmware
+#     rtl8761bu_fw.bin + rtl8761bu_config.bin unter /lib/firmware/rtl_bt/
+#     installiert (Debian braucht firmware-realtek bzw. die Dateien direkt)
+#   - Gerät einmalig als trusted markieren (im Container):
+#       docker compose exec visomat-bt bluetoothctl trust DD:67:E2:1E:C0:93
+#   - config.yaml (Sektionen `visomat:` und `garmin_sync:`) liegt unter
+#     /opt/visomat/config.yaml
 #
-# In Portainer anlegen: Stacks -> Add stack -> Repository (oder "Web editor"
-# mit dieser Datei) -> Deployment pfad/volume-pfad anpassen.
+# WICHTIG: visomat-bt braucht `privileged: true` UND den Bind-Mount
+# `/dev:/dev` — ohne /dev sieht bleak die HCI-/rfkill-Sockets nicht und
+# meldet "No Bluetooth adapters found". Der D-Bus/BlueZ läuft im Container
+# (siehe docker/entrypoint.sh), der Host braucht kein BlueZ.
+#
+# In Portainer anlegen: Stacks -> Add stack -> Web editor mit dieser Datei.
 
 services:
   visomat-bt:
@@ -16,9 +23,10 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "visomat_bt.main"]
     network_mode: host                 # BLE via hci0
-    privileged: true                   # Zugriff auf den Host-HCI (kein BlueZ am Host nötig)
+    privileged: true                   # HCI-/rfkill-Zugriff (AF_BLUETOOTH im Container)
     volumes:
       - /opt/visomat/config.yaml:/app/config.yaml:ro
+      - /dev:/dev                      # HCI-Sockets/rfkill für bleak bereitstellen
 
   garmin-sync:
     image: ghcr.io/bopp77/visomat-home-assistant:latest

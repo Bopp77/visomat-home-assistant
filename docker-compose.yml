@@ -1,6 +1,7 @@
 # visomat comfort soft BT (BLE) -> Home Assistant
 #
-# Benötigt Zugriff auf BlueZ/D-Bus des Hosts. Start:
+# BLE im Container: Das Image startet BlueZ/D-Bus selbst (docker/entrypoint.sh).
+# Der Host liefert nur den HCI-Adapter (hci0). Start:
 #   docker compose up -d --build
 
 services:
@@ -9,13 +10,10 @@ services:
     container_name: visomat-bt
     restart: unless-stopped
     network_mode: host                 # BLE via hci0
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+    privileged: true                   # HCI-/rfkill-Zugriff (AF_BLUETOOTH im Container)
     volumes:
       - ./config.yaml:/app/config.yaml:ro
-      - /run/dbus:/run/dbus:ro
-      - /var/run/dbus:/var/run/dbus:ro
+      - /dev:/dev                      # HCI-Sockets/rfkill für bleak bereitstellen
 
   # Synchronisiert visomat-Messwerte (MQTT) nach Garmin Connect.
   # Aktivierung: garmin_sync.enabled: true in config.yaml.

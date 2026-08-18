@@ -63,12 +63,18 @@ Bei jedem Push auf `main` (oder Tag `v*`) baut der Workflow
 Auf `192.168.178.102` (Portainer-Web-UI → **Stacks → Add stack**):
 
 - **Voraussetzungen auf dem Host:**
-  - BlueZ/D-Bus für BLE, Gerät einmalig als trusted markieren:
-    `bluetoothctl trust DD:67:E2:1E:C0:93`
+  - USB-BLE-Dongle durchgereicht (z.B. Realtek RTL8761BU); für Realtek-
+    Dongles die Firmware `rtl8761bu_fw.bin` + `rtl8761bu_config.bin` nach
+    `/lib/firmware/rtl_bt/` auf dem Host kopieren (Debian: `firmware-realtek`),
+    sonst bleibt hci0 ohne Adresse.
+  - Gerät einmalig als trusted markieren (im Container):
+    `docker compose exec visomat-bt bluetoothctl trust DD:67:E2:1E:C0:93`
   - Konfiguration nach `/opt/visomat/config.yaml` legen
     (Vorlage: `config.prod.example.yaml`; Sektionen `visomat:` + `garmin_sync:`)
 - **Stack-YAML:** `docker-compose.prod.yml` aus diesem Repo verwenden
-  (image-basiert von ghcr.io, Mount-Pfad `/opt/visomat/config.yaml`).
+  (image-basiert von ghcr.io, `privileged: true` + `/dev:/dev`-Mount für den
+  HCI-/rfkill-Zugriff; BlueZ/D-Bus läuft im Container, der Host braucht kein
+  BlueZ).
 - Nach dem Anlegen einmalig den Garmin-MFA-Login ausführen:
   ```bash
   docker compose -f /opt/visomat/docker-compose.prod.yml run --rm garmin-sync python -m garmin_sync.main --login
