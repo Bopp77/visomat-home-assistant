@@ -1,3 +1,4 @@
 bleak>=0.21
 paho-mqtt>=1.6,<2.0
 PyYAML>=6.0
+garminconnect>=0.3.10

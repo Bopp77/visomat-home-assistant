@@ -17,3 +17,21 @@ visomat:
     password: ""
     base_topic: "visomat_bt"
     discovery_prefix: "homeassistant"
+
+# visomat → Garmin Connect Synchronisation
+# Aktivierung: enabled: true. Vor dem ersten Betrieb einmalig:
+#   docker compose run --rm garmin-sync python -m garmin_sync.main --login
+# (führt den MFA-Login aus und speichert die Tokens persistent).
+garmin_sync:
+  enabled: false
+  mqtt:
+    host: "192.168.178.105"
+    port: 1883
+    username: "bopp"
+    password: ""
+    topic_base: "visomat_bt"
+  garmin:
+    email: ""                        # Garmin-Konto (E-Mail)
+    password: ""                     # Garmin-Passwort
+    timezone: "Europe/Berlin"        # Zeitzone für den lokalen Messzeitstempel
+    token_path: "~/.garminconnect"

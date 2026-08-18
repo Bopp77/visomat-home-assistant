@@ -65,9 +65,53 @@ Per MQTT-Discovery erscheint das Gerät **visomat comfort soft BT** mit:
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-ruff check visomat_bt/
+ruff check visomat_bt/ garmin_sync/
 pytest -q
 ```
+
+## Garmin-Sync (visomat-Messwerte → Garmin Connect)
+
+Der optionale Dienst `garmin-sync` abonniert die MQTT-Topics des Gateways und
+lädt jede neue Messung (Systole/Diastole/Puls + Messzeitpunkt) nach Garmin
+Connect hoch. Die Messungen erscheinen dort als manuell erfasste
+Blutdruckwerte.
+
+**Hinweis:** Der Dienst nutzt die inoffizielle Garmin-Connect-API
+(`garminconnect`). Bei MFA-aktivem Konto ist einmalig ein interaktiver Login
+nötig; die Tokens werden danach persistent gespeichert.
+
+### Konfiguration (config.yaml)
+```yaml
+garmin_sync:
+  enabled: true
+  mqtt:
+    host: "192.168.178.105"
+    port: 1883
+    username: "bopp"
+    password: ""
+    topic_base: "visomat_bt"
+  garmin:
+    email: "mein.garmin@example.com"
+    password: "..."               # einmalig für --login nötig
+    timezone: "Europe/Berlin"
+    token_path: "~/.garminconnect"
+```
+
+### Einmaliger Garmin-Login (MFA)
+```bash
+docker compose run --rm garmin-sync python -m garmin_sync.main --login
+# MFA-Code am Prompt eingeben; Tokens werden im Volume garmin-tokens gespeichert
+```
+
+### Start
+```bash
+docker compose up -d --build
+```
+
+Deduplizierung: Eine Messung wird nur dann hochgeladen, wenn
+`measurementTimestampGMT` noch nicht in Garmin vorhanden ist — damit werden
+wiederholte Zustellungen des Geräts (Offline-Sync beim Connect) nicht
+doppelt übertragen.
 
 ## Inbetriebnahme
 1. Gerät in Sync-Bereitschaft versetzen (Messung am Gerät starten).
@@ -85,4 +129,12 @@ visomat_bt/
 ├── config.py        # config.yaml (Sektion `visomat:`)
 ├── main.py          # Entrypoint
 └── tests/           # Parser- und Publisher-Tests gegen Hex-Vektoren
+
+garmin_sync/
+├── mqtt_listener.py # Abonniert visomat-Topics, assembliert Messungen
+├── garmin_uploader.py # Garmin-Auth, set_blood_pressure, Dedupe
+├── syncer.py        # Verknüpft Listener + Uploader
+├── config.py        # config.yaml (Sektion `garmin_sync:`)
+├── main.py          # Entrypoint (+ --login für MFA)
+└── tests/           # Assemblierung, Dedupe, Validierung
 ```

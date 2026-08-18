@@ -16,3 +16,23 @@ services:
       - ./config.yaml:/app/config.yaml:ro
       - /run/dbus:/run/dbus:ro
       - /var/run/dbus:/var/run/dbus:ro
+
+  # Synchronisiert visomat-Messwerte (MQTT) nach Garmin Connect.
+  # Aktivierung: garmin_sync.enabled: true in config.yaml.
+  garmin-sync:
+    build: .
+    container_name: garmin-sync
+    restart: unless-stopped
+    command: ["python", "-m", "garmin_sync.main"]
+    networks:
+      - default
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - garmin-tokens:/root/.garminconnect
+
+volumes:
+  garmin-tokens:
+
+networks:
+  default:
+    name: visomat-home-assistant
