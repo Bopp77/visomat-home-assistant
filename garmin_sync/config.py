@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass, field
 
 import yaml
+
+#: Options file injected by the Home Assistant Supervisor into add-on containers.
+HA_OPTIONS_PATH = "/data/options.json"
 
 
 @dataclass
@@ -54,8 +59,31 @@ def _section(raw: dict, key: str, default: dataclass):
 
 
 def load_config(path: str = "config.yaml") -> Config:
+    # Home Assistant add-on: the Supervisor provides the options via
+    # /data/options.json, which takes precedence over any config.yaml.
+    if os.path.exists(HA_OPTIONS_PATH):
+        return load_ha_options()
     with open(path, encoding="utf-8") as handle:
         raw = yaml.safe_load(handle) or {}
+    section = raw.get("garmin_sync") or {}
+    cfg = Config(
+        enabled=bool(section.get("enabled", False)),
+        mqtt=_section(section, "mqtt", MqttConfig()),
+        garmin=_section(section, "garmin", GarminConfig()),
+    )
+    cfg.validate()
+    return cfg
+
+
+def load_ha_options(path: str | None = None) -> Config:
+    """Load configuration from the Home Assistant add-on options file.
+
+    The JSON layout mirrors the add-on schema:
+    ``{"garmin_sync": {"enabled": bool, "mqtt": {...}, "garmin": {...}}}``.
+    Missing keys fall back to the dataclass defaults.
+    """
+    with open(path or HA_OPTIONS_PATH, encoding="utf-8") as handle:
+        raw = json.load(handle) or {}
     section = raw.get("garmin_sync") or {}
     cfg = Config(
         enabled=bool(section.get("enabled", False)),

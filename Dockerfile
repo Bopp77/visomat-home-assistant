@@ -17,9 +17,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY visomat_bt ./visomat_bt
 COPY garmin_sync ./garmin_sync
+COPY visomat_addon ./visomat_addon
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 COPY config.example.yaml ./config.yaml
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["python", "-m", "visomat_bt.main"]
+CMD ["python", "-m", "visomat_addon.main"]

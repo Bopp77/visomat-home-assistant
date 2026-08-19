@@ -13,6 +13,36 @@ from .syncer import Syncer
 LOGGER = logging.getLogger("garmin_sync.main")
 
 
+async def run_syncer(cfg, stop: asyncio.Event | None = None) -> None:
+    """Run the Garmin sync (MQTT listener + uploader) until ``stop`` is set.
+
+    Exposed separately so a supervising entrypoint (e.g. the Home Assistant
+    add-on) can run it concurrently with the visomat BLE gateway. Returns
+    immediately when the sync is disabled.
+    """
+    if not cfg.enabled:
+        LOGGER.info("garmin_sync deaktiviert (garmin_sync.enabled: false), beende")
+        return
+
+    syncer = Syncer(cfg)
+    syncer.login()
+    syncer.start()
+
+    try:
+        if stop is None:
+            stop = asyncio.Event()
+            loop = asyncio.get_running_loop()
+
+            def request_stop() -> None:
+                stop.set()
+
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, request_stop)
+        await stop.wait()
+    finally:
+        syncer.stop()
+
+
 async def amain(cfg, login_only: bool = False) -> None:
     syncer = Syncer(cfg)
 
@@ -21,26 +51,7 @@ async def amain(cfg, login_only: bool = False) -> None:
         LOGGER.info("Login abgeschlossen, Tokens gespeichert")
         return
 
-    if not cfg.enabled:
-        LOGGER.info("garmin_sync deaktiviert (garmin_sync.enabled: false), beende")
-        return
-
-    syncer.login()
-    syncer.start()
-
-    stop = asyncio.Event()
-
-    def request_stop() -> None:
-        stop.set()
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(sig, request_stop)
-
-    try:
-        await stop.wait()
-    finally:
-        syncer.stop()
+    await run_syncer(cfg)
 
 
 def main() -> None:

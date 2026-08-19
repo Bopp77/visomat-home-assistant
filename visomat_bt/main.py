@@ -16,8 +16,12 @@ from .transport import DeviceInfo
 LOGGER = logging.getLogger("visomat_bt.main")
 
 
-async def amain(cfg) -> None:
-    loop = asyncio.get_running_loop()
+async def run_gateway(cfg, stop: asyncio.Event) -> None:
+    """Run the BLE gateway until ``stop`` is set.
+
+    Exposed separately so a supervising entrypoint (e.g. the Home Assistant
+    add-on) can run it concurrently with the Garmin sync service.
+    """
     publisher = Publisher(cfg.mqtt)
     listener = Listener(cfg)
     publisher.start()
@@ -33,6 +37,25 @@ async def amain(cfg) -> None:
 
     listener.set_handlers(on_measurement, on_battery, on_metadata)
 
+    task: asyncio.Task | None = None
+    try:
+        task = asyncio.create_task(listener.run())
+        await stop.wait()
+    finally:
+        # On normal stop or cancellation, always tear the listener down so no
+        # pending task is left behind when the supervising task is cancelled.
+        await listener.stop()
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        publisher.stop()
+
+
+async def amain(cfg) -> None:
+    loop = asyncio.get_running_loop()
     stop = asyncio.Event()
 
     def request_stop() -> None:
@@ -41,17 +64,7 @@ async def amain(cfg) -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, request_stop)
 
-    try:
-        task = asyncio.create_task(listener.run())
-        await stop.wait()
-        await listener.stop()
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
-    finally:
-        publisher.stop()
+    await run_gateway(cfg, stop)
 
 
 def main() -> None:

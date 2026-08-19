@@ -1,0 +1,79 @@
+name: "visomat comfort soft BT Gateway"
+version: "0.2.0"
+slug: visomat
+description: >-
+  BLE-Gateway für das Blutdruckmessgerät visomat comfort soft BT
+  (Blood Pressure Service 0x1810) mit MQTT-Discovery für Home Assistant und
+  optionalem Garmin-Connect-Sync. Nutzt den Bluetooth-Dongle des Hosts über
+  BlueZ/D-Bus und teilt ihn sich dadurch mit der HA-Bluetooth-Integration.
+url: https://github.com/Bopp77/visomat-home-assistant
+image: ghcr.io/bopp77/visomat-home-assistant
+arch:
+  - aarch64
+  - amd64
+host_dbus: true
+startup: application
+boot: auto
+apparmor: false
+options:
+  log_level: info
+  visomat:
+    ble:
+      mac: "DD:67:E2:1E:C0:93"
+      name: "comfort soft"
+      adapter: "hci0"
+      scan_timeout_sec: 5
+      scan_interval_sec: 2
+      reconnect_delay_sec: 1
+      timeout_sec: 15
+    mqtt:
+      host: "core-mosquitto"
+      port: 1883
+      username: "visomat"
+      password: ""
+      base_topic: "visomat_bt"
+      discovery_prefix: "homeassistant"
+  garmin_sync:
+    enabled: false
+    mqtt:
+      host: "core-mosquitto"
+      port: 1883
+      username: "bopp"
+      password: ""
+      topic_base: "visomat_bt"
+    garmin:
+      email: ""
+      password: ""
+      timezone: "Europe/Berlin"
+      token_path: "/data/garminconnect"
+schema:
+  log_level: list(debug|info|warning|error)
+  visomat:
+    ble:
+      mac: str
+      name: str
+      adapter: str
+      scan_timeout_sec: float
+      scan_interval_sec: float
+      reconnect_delay_sec: float
+      timeout_sec: float
+    mqtt:
+      host: str
+      port: port
+      username: str
+      password: password
+      base_topic: str
+      discovery_prefix: str
+  garmin_sync:
+    enabled: bool
+    mqtt:
+      host: str
+      port: port
+      username: str
+      password: password
+      topic_base: str
+    garmin:
+      email: str
+      password: password
+      timezone: str
+      token_path: str

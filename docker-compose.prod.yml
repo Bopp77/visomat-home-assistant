@@ -1,4 +1,7 @@
 # Produktiver Stack für Portainer (image-basiert von ghcr.io).
+# LEGACY: Seit v0.2.0 ist das Home Assistant Add-on (Ordner visomat/) der
+# primäre Weg. Dieser Stack wird nur noch ohne HA-Supervisor verwendet und
+# belegt den BLE-Dongle exklusiv (kein Dongle-Sharing mit HA Bluetooth).
 #
 # Voraussetzungen auf dem Host (192.168.178.102):
 #   - USB-BLE-Dongle durchgereicht (hier: Realtek RTL8761BU), Firmware

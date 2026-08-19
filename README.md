@@ -6,6 +6,9 @@ Standard **Blood Pressure Service (0x1810)**; jede Messung kommt als
 Notification auf Characteristic **0x2A35** und wird per MQTT-Discovery als
 Home-Assistant-Entitäten veröffentlicht.
 
+Das Projekt lässt sich als **Home Assistant Add-on** (empfohlen) oder als
+eigenständiger Docker-Container (Portainer, Legacy) betreiben.
+
 Gegen ein reales Gerät verifiziert:
 
 - Advertising-Name `comfort soft BT` (statische Random-Adresse, stabil),
@@ -25,11 +28,72 @@ Gegen ein reales Gerät verifiziert:
   ein periodischer Scan mit Lücken würde dieses Fenster verpassen.
 
 ## Voraussetzungen
-- Host mit BLE-Adapter (z.B. Intel AX201) und BlueZ ≥ 5.43, D-Bus erreichbar.
+- Home Assistant mit BLE-Adapter (z.B. Intel AX201 oder USB-Dongle) und BlueZ ≥ 5.43.
+- Der BLE-Dongle wird vom Host-BlueZ verwaltet; die HA-Bluetooth-Integration und
+  dieses Add-on **teilen sich den Adapter** gleichzeitig (Multi-Client über D-Bus).
 - Das Gerät muss in BLE-Reichweite des Homeservers sein (~10–15 m).
-- Mosquitto-Broker in Home Assistant.
+- Mosquitto-Broker (HA-Add-on `Mosquitto broker` oder extern).
 
-## Konfiguration
+## Installation als Home Assistant Add-on (empfohlen)
+
+Das Add-on wird aus diesem Repository über den Add-on-Store installiert. Das
+Image wird per GitHub Actions als Multi-Arch-Image (amd64/aarch64) nach GHCR
+gepusht; der Supervisor lädt das passende Image und startet es.
+
+1. **Repository hinzufügen**: Einstellungen → Add-ons → Add-on-Store →
+   Menü (⋮) → Repository → `https://github.com/Bopp77/visomat-home-assistant` →
+   *Hinzufügen*.
+2. **Add-on installieren**: Im Store auf **visomat comfort soft BT Gateway** →
+   *Installieren*.
+3. **Konfigurieren**: Im Tab *Konfiguration* (siehe Abschnitt unten) die MAC des
+   Geräts und ggf. den MQTT-Broker setzen, dann *Speichern*.
+4. **Start**: Tab *Info* → *Starten*. Log im Tab *Log* prüfen.
+
+> **Hinweis:** Das Add-on bezieht sein Image mit dem Tag `0.2.0` aus
+> `ghcr.io/bopp77/visomat-home-assistant`. Das Tag wird beim Release-Tag
+> `v0.2.0` von der CI erzeugt; vor dem ersten Release läuft nur die
+> Portainer-/Standalone-Variante.
+
+> **Bluetooth-Dongle-Sharing:** Das Add-on läuft mit `host_dbus: true` und
+> spricht das **Host-BlueZ** direkt über D-Bus an. Es startet keinen eigenen
+> `bluetoothd` und belegt den Dongle nicht exklusiv — die
+> HA-Bluetooth-Integration (z.B. für eine BLE-Waage) und das visomat-Gateway
+> können denselben USB-Dongle parallel nutzen. So kann der Dongle vom
+> Portainer-Server (192.168.178.102) auf die Home-Assistant-VM
+> (192.168.178.105) umziehen.
+
+### Konfiguration (Add-on-Optionen)
+
+| Option | Bedeutung |
+|---|---|
+| `visomat.ble.mac` | MAC (`DD:67:E2:1E:C0:93`), `""` leer für Name-Scan |
+| `visomat.ble.name` | Name-Substring (`comfort soft`), falls keine MAC |
+| `visomat.ble.adapter` | BlueZ-Adapter (`hci0`) |
+| `visomat.ble.scan_timeout_sec` | Scan-Zeitfenster pro Versuch |
+| `visomat.ble.scan_interval_sec` | Rescan, wenn Gerät nicht erreichbar |
+| `visomat.ble.reconnect_delay_sec` | Pause zwischen Reconnect-Versuchen |
+| `visomat.ble.timeout_sec` | Connect/GATT-Timeout |
+| `visomat.mqtt.host` | Broker (HA-Add-on: `core-mosquitto`) |
+| `visomat.mqtt.*` | Broker-Port/Zugang, `base_topic` + Discovery-Prefix |
+| `garmin_sync.enabled` | Garmin-Connect-Sync aktivieren (siehe unten) |
+| `garmin_sync.garmin.email/password` | Garmin-Konto für den Sync |
+
+Hinweis: Nach jeder Änderung *Speichern* und das Add-on neu starten
+(Tab *Info* → *Neu starten*).
+
+### Garmin-MFA-Login (einmalig)
+
+Wenn `garmin_sync.enabled: true` gesetzt ist, wird einmalig ein interaktiver
+MFA-Login benötigt. Im Add-on-Container per `docker exec` auf dem Home-Assistant-Host:
+
+```bash
+docker exec -it addon_visomat python -m garmin_sync.main --login
+# MFA-Code am Prompt eingeben; Tokens landen persistent unter /data/garminconnect
+```
+
+Die Tokens bleiben über Add-on-Updates und Neustarts erhalten (`/data`-Volume).
+
+## Konfiguration (Standalone / Legacy-Docker)
 ```bash
 cp config.example.yaml config.yaml
 # Abschnitt `visomat:` anpassen (ble.mac oder Name-Scan, mqtt.*)
@@ -52,12 +116,16 @@ setzen.
 docker compose up -d --build
 ```
 
-## Produktiv-Deployment (ghcr.io + Portainer)
+## Produktiv-Deployment (ghcr.io + Portainer) — Legacy
+
+> **Hinweis:** Seit Version 0.2.0 ist das Home Assistant Add-on der primäre
+> Weg. Der Portainer-Stack wird nur noch für Umgebungen ohne HA-Supervisor
+> verwendet und belegt den BLE-Dongle **exklusiv**.
 
 ### 1. GitHub Actions baut das Image automatisch
 Bei jedem Push auf `main` (oder Tag `v*`) baut der Workflow
-`.github/workflows/build-push-ghcr.yml` das Image und pusht es nach
-`ghcr.io/bopp77/visomat-home-assistant` (`:latest`, `:main`, bzw. `:vX.Y.Z`).
+`.github/workflows/build-push-ghcr.yml` das Image (amd64 + arm64) und pusht es
+nach `ghcr.io/bopp77/visomat-home-assistant` (`:latest`, `:main`, bzw. `:vX.Y.Z`).
 
 ### 2. Portainer-Stack auf dem Produktiv-Host
 Auf `192.168.178.102` (Portainer-Web-UI → **Stacks → Add stack**):
@@ -98,7 +166,7 @@ Per MQTT-Discovery erscheint das Gerät **visomat comfort soft BT** mit:
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"
-ruff check visomat_bt/ garmin_sync/
+ruff check visomat_bt/ garmin_sync/ visomat_addon/
 pytest -q
 ```
 
@@ -111,14 +179,15 @@ Blutdruckwerte.
 
 **Hinweis:** Der Dienst nutzt die inoffizielle Garmin-Connect-API
 (`garminconnect`). Bei MFA-aktivem Konto ist einmalig ein interaktiver Login
-nötig; die Tokens werden danach persistent gespeichert.
+nötig; die Tokens werden danach persistent gespeichert. Im Add-on unter
+`/data/garminconnect`, im Docker-Betrieb unter `~/.garminconnect`.
 
-### Konfiguration (config.yaml)
+### Konfiguration (Add-on-Optionen / config.yaml)
 ```yaml
 garmin_sync:
   enabled: true
   mqtt:
-    host: "192.168.178.105"
+    host: "core-mosquitto"           # Add-on: core-mosquitto; Standalone: 192.168.178.105
     port: 1883
     username: "bopp"
     password: ""
@@ -127,19 +196,22 @@ garmin_sync:
     email: "mein.garmin@example.com"
     password: "..."               # einmalig für --login nötig
     timezone: "Europe/Berlin"
-    token_path: "~/.garminconnect"
+    token_path: "/data/garminconnect"   # Add-on; Standalone: "~/.garminconnect"
 ```
 
 ### Einmaliger Garmin-Login (MFA)
+Add-on:
+```bash
+docker exec -it addon_visomat python -m garmin_sync.main --login
+```
+Docker-Compose:
 ```bash
 docker compose run --rm garmin-sync python -m garmin_sync.main --login
-# MFA-Code am Prompt eingeben; Tokens werden im Volume garmin-tokens gespeichert
 ```
+MFA-Code am Prompt eingeben; Tokens werden im Add-on-/garmin-tokens-Volume gespeichert.
 
 ### Start
-```bash
-docker compose up -d --build
-```
+Add-on: *Info* → *Starten*. Docker-Compose: `docker compose up -d --build`.
 
 Deduplizierung: Eine Messung wird nur dann hochgeladen, wenn
 `measurementTimestampGMT` noch nicht in Garmin vorhanden ist — damit werden
@@ -154,12 +226,22 @@ doppelt übertragen.
 
 ## Projektstruktur
 ```
+visomat/                # Home Assistant Add-on (Repository-Root ist der Add-on-Store)
+├── config.yaml         # Add-on-Manifest (Optionen + Schema)
+├── build.yaml          # Basis-Images je Architektur
+├── Dockerfile          # Add-on-Image (Host-BlueZ via host_dbus)
+└── run.sh              # Startet visomat_addon.main
+
+visomat_addon/          # Add-on-Orchestrator: Gateway + optionaler Garmin-Sync
+├── main.py             # Supervised Entrypoint (liest /data/options.json)
+└── tests/
+
 visomat_bt/
 ├── protocol.py      # BLS-Parser: Flags, IEEE-11073 SFLOAT, Timestamp, Status, Feature
 ├── transport.py     # BleTransport (bleak): Connect, Subscribe 0x2A35/0x2A19, Device-Info
 ├── listener.py      # Kontinuierlicher Scanner + Reconnect-Watchdog
 ├── publisher.py     # MQTT-Discovery + State-Publishing
-├── config.py        # config.yaml (Sektion `visomat:`)
+├── config.py        # config.yaml / /data/options.json (Sektion `visomat:`)
 ├── main.py          # Entrypoint
 └── tests/           # Parser- und Publisher-Tests gegen Hex-Vektoren
 
@@ -167,7 +249,7 @@ garmin_sync/
 ├── mqtt_listener.py # Abonniert visomat-Topics, assembliert Messungen
 ├── garmin_uploader.py # Garmin-Auth, set_blood_pressure, Dedupe
 ├── syncer.py        # Verknüpft Listener + Uploader
-├── config.py        # config.yaml (Sektion `garmin_sync:`)
+├── config.py        # config.yaml / /data/options.json (Sektion `garmin_sync:`)
 ├── main.py          # Entrypoint (+ --login für MFA)
 └── tests/           # Assemblierung, Dedupe, Validierung
 ```
