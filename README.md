@@ -153,6 +153,23 @@ Auf `192.168.178.102` (Portainer-Web-UI → **Stacks → Add stack**):
 Push auf `main` → ghcr-Image `:latest` neu → in Portainer **Stack → Update**
 (Image neu pullen / Stack neu deployen).
 
+### 4. Ablösung durch das Add-on (Migration 192.168.178.102 → 192.168.178.105)
+
+Der Portainer-Stack wird durch das HA-Add-on ersetzt, damit der USB-BLE-Dongle
+vom Host-BlueZ der HA-VM verwaltet und mit der Bluetooth-Integration geteilt
+werden kann. Ablauf:
+
+1. **Dongle umstecken** vom Portainer-Server auf die HA-VM und dort als `hci0`
+   verifizieren (Realtek-Firmware liegt HAOS üblicherweise bei).
+2. **MQTT-User `visomat`** im HA-Mosquitto anlegen (Add-on → Mosquitto →
+   Configuration → Users) und im Add-on als `username`/`password` eintragen.
+3. **Add-on installieren** (siehe oben), BLE-/Garmin-Optionen setzen, starten,
+   Gerät als trusted markieren, Garmin-MFA-Login ausführen.
+4. **Verifikation**: Messung auslösen → Entitäten in HA + Garmin-Eintrag,
+   BLE-Waage läuft parallel weiter (Dongle-Sharing bestätigt).
+5. **Portainer-Stack `visomat` stoppen**; erst nach Abnahme löschen und
+   `/opt/visomat` sowie das Volume `garmin-tokens` entfernen.
+
 
 ## Home Assistant
 Per MQTT-Discovery erscheint das Gerät **visomat comfort soft BT** mit:
@@ -218,19 +235,18 @@ Deduplizierung: Eine Messung wird nur dann hochgeladen, wenn
 wiederholte Zustellungen des Geräts (Offline-Sync beim Connect) nicht
 doppelt übertragen.
 
-## Inbetriebnahme
-1. Gerät in Sync-Bereitschaft versetzen (Messung am Gerät starten).
-2. `ble.mac` setzen (per `bluetoothctl scan on` ermitteln) und Dienst starten.
-3. Messung durchführen → Log prüfen (`published measurement: ...`), Werte gegen
+## Inbetriebnahme (Add-on)
+1. Add-on installieren/starten (siehe oben), Gerät einmalig als trusted markieren:
+   `docker exec -it addon_visomat bluetoothctl trust DD:67:E2:1E:C0:93`
+2. Messung am Gerät starten → Log prüfen (`connected to comfort soft BT`,
+   `published measurement: ...`), Werte gegen
    Geräte-Display plausibilisieren.
 
 ## Projektstruktur
 ```
 visomat/                # Home Assistant Add-on (Repository-Root ist der Add-on-Store)
-├── config.yaml         # Add-on-Manifest (Optionen + Schema)
-├── build.yaml          # Basis-Images je Architektur
-├── Dockerfile          # Add-on-Image (Host-BlueZ via host_dbus)
-└── run.sh              # Startet visomat_addon.main
+└── config.yaml         # Add-on-Manifest (image, Optionen + Schema)
+                        # (Image wird per CI gebaut; kein lokaler Dockerfile-Build)
 
 visomat_addon/          # Add-on-Orchestrator: Gateway + optionaler Garmin-Sync
 ├── main.py             # Supervised Entrypoint (liest /data/options.json)

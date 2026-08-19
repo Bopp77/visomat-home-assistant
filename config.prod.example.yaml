@@ -1,4 +1,10 @@
-# Produktive Konfiguration für 192.168.178.102 (/opt/visomat/config.yaml).
+# LEGACY — Produktive Konfiguration für den Portainer-Stack (192.168.178.102,
+# /opt/visomat/config.yaml). Seit v0.2.0 ist das HA-Add-on der primäre Weg;
+# diese Datei wird nur noch für Umgebungen ohne HA-Supervisor verwendet und
+# referenziert den Broker extern über die Host-IP.
+#
+# Für das Add-on: Optionen direkt in der HA-Oberfläche setzen (Tab Konfiguration)
+# statt dieser Datei — siehe visomat/config.yaml (Schema/Defaults) im Repo.
 # Nach Anlage: Messung am Gerät triggern, Werte gegen Display prüfen.
 
 visomat:
