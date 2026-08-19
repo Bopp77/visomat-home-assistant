@@ -1,6 +1,7 @@
 """Publisher tests with a mock MQTT client."""
 
 import asyncio
+from datetime import datetime
 from unittest.mock import MagicMock
 
 from visomat_bt.config import MqttConfig
@@ -43,7 +44,8 @@ def test_publish_measurement_full_vector():
     assert published["visomat_bt/sensor/diastolic/state"] == "80"
     assert published["visomat_bt/sensor/map/state"] == "93"
     assert published["visomat_bt/sensor/pulse/state"] == "72"
-    assert published["visomat_bt/sensor/measurement_time/state"] == "2024-12-24T14:30:05"
+    expected_time = datetime(2024, 12, 24, 14, 30, 5).astimezone().isoformat()
+    assert published["visomat_bt/sensor/measurement_time/state"] == expected_time
 
 
 def test_publish_measurement_kpa_conversion():

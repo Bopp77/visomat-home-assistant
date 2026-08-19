@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+- Puls-Sensor: ungültigen `device_class: heart_rate` entfernt (wird von HA
+  abgelehnt, der Sensor fehlte dadurch).
+- Messzeitpunkt: State jetzt mit Zeitzone (Gerät liefert lokale Zeit ohne
+  Zone; wird als lokale Systemzeit interpretiert) — `device_class: timestamp`
+  verlangt TZ-ISO.
+- `bluetoothctl trust DD:67:E2:1E:C0:93` auf dem Host-BlueZ empfohlen
+  (GATT-Cache, sonst schlägt die Service-Discovery im kurzen Sync-Fenster fehl).
+
 ## 0.2.0
 - Transformation in ein Home Assistant Add-on (Ordner `visomat/`).
 - Bluetooth-Sharing über Host-BlueZ via `host_dbus` — kein exklusiver

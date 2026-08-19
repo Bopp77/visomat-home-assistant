@@ -34,7 +34,7 @@ SENSORS: dict[str, dict[str, Any]] = {
     "systolic": {"name": "Systole", "unit": "mmHg", "device_class": "pressure", "icon": None},
     "diastolic": {"name": "Diastole", "unit": "mmHg", "device_class": "pressure", "icon": None},
     "map": {"name": "Mittlerer Arterieller Druck", "unit": "mmHg", "device_class": "pressure", "icon": None},
-    "pulse": {"name": "Puls", "unit": "bpm", "device_class": "heart_rate", "icon": None},
+    "pulse": {"name": "Puls", "unit": "bpm", "device_class": None, "icon": None},
     "measurement_time": {"name": "Messzeitpunkt", "device_class": "timestamp", "icon": None},
     "user_id": {"name": "Benutzer-ID", "device_class": None, "icon": "mdi:account", "entity_category": "diagnostic"},
     "battery": {"name": "Batterie", "unit": "%", "device_class": "battery", "icon": None},
@@ -102,7 +102,13 @@ class Publisher:
         if measurement.pulse_rate is not None:
             payloads.append((self._topic("sensor/pulse/state"), _format_number(measurement.pulse_rate)))
         if measurement.timestamp is not None:
-            payloads.append((self._topic("sensor/measurement_time/state"), measurement.timestamp.isoformat()))
+            timestamp = measurement.timestamp
+            if timestamp.tzinfo is None:
+                # The device reports local time without a zone. HA requires a
+                # timezone for device_class 'timestamp', so interpret the value
+                # in the local (system) timezone.
+                timestamp = timestamp.astimezone()
+            payloads.append((self._topic("sensor/measurement_time/state"), timestamp.isoformat()))
         if measurement.user_id is not None:
             payloads.append((self._topic("sensor/user_id/state"), str(measurement.user_id)))
 
