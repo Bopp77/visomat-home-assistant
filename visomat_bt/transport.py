@@ -81,14 +81,25 @@ class BleTransport:
         self._disconnected = asyncio.Event()
 
         client = BleakClient(self.address, timeout=self.timeout, disconnected_callback=self._on_disconnect)
-        await client.connect()
+        try:
+            await client.connect(dangerous_use_bleak_cache=True)
+        except TypeError:
+            # Older bleak versions do not support the cache kwarg.
+            await client.connect()
         self._client = client
 
         try:
             async with asyncio.timeout(self.timeout):
                 await client.start_notify(BLOOD_PRESSURE_MEASUREMENT_UUID, self._measurement_handler)
                 if on_battery is not None and self._has_uuid(BATTERY_LEVEL_UUID):
-                    await client.start_notify(BATTERY_LEVEL_UUID, self._battery_handler)
+                    try:
+                        await client.start_notify(BATTERY_LEVEL_UUID, self._battery_handler)
+                    except (BleakError, TimeoutError) as exc:
+                        # The visomat does not reliably support notifications on
+                        # the battery characteristic. This must never abort the
+                        # session — the blood pressure notifications are the hot
+                        # path and may arrive within the same short sync window.
+                        LOGGER.debug("battery notify not available: %s", exc)
                 return await self._read_device_info(client)
         except (TimeoutError, BleakError):
             await self.close()

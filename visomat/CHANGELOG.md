@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+- Transport: Batterie-`start_notify` ist nicht mehr fatal — der visomat
+  unterstützt Notifications auf der Batterie-Charakteristik nicht zuverlässig;
+  ein Fehler dort brach die Session ab und verlor Blutdruck-Messungen, die
+  bereits im kurzen Sync-Fenster ankamen.
+- Transport: `dangerous_use_bleak_cache=True` — nutzt den BlueZ-GATT-Cache,
+  damit die Discovery in das sehr kurze Verbindungsfenster des Geräts passt.
+
 ## 0.2.1
 - Puls-Sensor: ungültigen `device_class: heart_rate` entfernt (wird von HA
   abgelehnt, der Sensor fehlte dadurch).
