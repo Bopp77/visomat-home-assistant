@@ -14,6 +14,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Self
 
 from bleak import BleakClient
@@ -23,6 +24,7 @@ from .protocol import (
     BATTERY_LEVEL_UUID,
     BLOOD_PRESSURE_FEATURE_UUID,
     BLOOD_PRESSURE_MEASUREMENT_UUID,
+    CURRENT_TIME_UUID,
 )
 
 LOGGER = logging.getLogger("visomat_bt.transport")
@@ -100,6 +102,7 @@ class BleTransport:
                         # session — the blood pressure notifications are the hot
                         # path and may arrive within the same short sync window.
                         LOGGER.debug("battery notify not available: %s", exc)
+                await self._set_current_time(client)
                 return await self._read_device_info(client)
         except (TimeoutError, BleakError):
             await self.close()
@@ -128,6 +131,36 @@ class BleTransport:
             value = await self._read_u16(client, BLOOD_PRESSURE_FEATURE_UUID)
             info = _setattr(info, "feature", value)
         return info
+
+    async def _set_current_time(self, client: BleakClient) -> None:
+        """Set the device clock via the Current Time Service (0x2A2B).
+
+        The visomat's internal clock resets when the battery is removed, which
+        corrupts the measurement timestamps. Writing the current local time on
+        every (successful) connect keeps the clock in sync. Never fatal.
+        """
+        if not self._has_uuid(CURRENT_TIME_UUID):
+            return
+        now = datetime.now().astimezone().timetuple()
+        payload = bytes(
+            [
+                now.tm_year & 0xFF,
+                (now.tm_year >> 8) & 0xFF,
+                now.tm_mon,
+                now.tm_mday,
+                now.tm_hour,
+                now.tm_min,
+                now.tm_sec,
+                now.tm_wday + 1,  # DayOfWeek: Monday=1 ... Sunday=7
+                0,  # fractions256
+                0,  # adjust_reason: manual
+            ]
+        )
+        try:
+            await client.write_gatt_char(CURRENT_TIME_UUID, payload)
+            LOGGER.info("device clock set to %s", datetime.now().astimezone().isoformat(timespec="seconds"))
+        except (BleakError, TimeoutError) as exc:
+            LOGGER.debug("could not set device clock: %s", exc)
 
     def _has_uuid(self, uuid: str) -> bool:
         if self._client is None:

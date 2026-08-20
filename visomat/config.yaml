@@ -1,5 +1,5 @@
 name: "visomat comfort soft BT Gateway"
-version: "0.2.2"
+version: "0.2.3"
 slug: visomat
 description: >-
   BLE-Gateway für das Blutdruckmessgerät visomat comfort soft BT

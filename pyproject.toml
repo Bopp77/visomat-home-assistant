@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "visomat-home-assistant"
-version = "0.2.2"
+version = "0.2.3"
 description = "visomat comfort soft BT (UEBE Medical) BLE gateway for Home Assistant"
 requires-python = ">=3.11"
 dependencies = [

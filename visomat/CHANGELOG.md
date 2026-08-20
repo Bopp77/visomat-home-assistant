@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+- Geräteuhr wird bei jedem erfolgreichen Connect gesetzt (Current Time Service
+  0x2A2B) — das Gerät verliert Datum/Uhrzeit nach Batterie-Entnahme; so bleiben
+  die Messzeitstempel korrekt.
+
+
 ## 0.2.2
 - Transport: Batterie-`start_notify` ist nicht mehr fatal — der visomat
   unterstützt Notifications auf der Batterie-Charakteristik nicht zuverlässig;
