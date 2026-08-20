@@ -16,6 +16,7 @@ visomat:
     scan_interval_sec: 2
     reconnect_delay_sec: 1
     timeout_sec: 15
+    watchdog_max_failures: 8    # 0=aus: Neustart nach N Connect-Fehlern (BlueZ-Stuck-Discovery)
   mqtt:
     host: "192.168.178.105"        # Home Assistant / Mosquitto
     port: 1883

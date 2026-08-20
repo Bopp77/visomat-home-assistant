@@ -4,13 +4,16 @@ BLE-Gateway für das Blutdruckmessgerät **visomat comfort soft BT** (UEBE
 Medical, Art.-Nr. 24065). Jede Messung wird per MQTT-Discovery als
 Home-Assistant-Entitäten veröffentlicht. Optionaler Sync nach Garmin Connect.
 
-## Bluetooth-Dongle-Sharing
+## Bluetooth-Zugriff
 
-Das Add-on nutzt das **BlueZ des Hosts** über den Host-D-Bus (`host_dbus`).
-Es startet keinen eigenen Bluetooth-Daemon und reserviert den BLE-Adapter
-nicht exklusiv. Die HA-Bluetooth-Integration (z.B. für eine BLE-Waage) und
-dieses Gateway können daher **denselben USB-Dongle gleichzeitig** verwenden.
-Voraussetzung ist, dass der Dongle vom Host (BlueZ) erkannt wird.
+Das Add-on nutzt das **BlueZ des Hosts** über den Host-D-Bus (`host_dbus`)
+und startet keinen eigenen Bluetooth-Daemon. Voraussetzung ist, dass der
+Dongle vom Host (BlueZ) erkannt wird.
+
+**Koexistenz mit einer BLE-Waage:** Zwei unabhängige BLE-Add-ons auf einem
+Dongle koexistieren nicht zuverlässig (BlueZ-„stuck discovery"-Bug). Erprobter
+Weg: die Waage im Einmal-Modus via `switch.ble_scale_sync` starten (siehe
+README, Abschnitt *Betriebsmodell*).
 
 ## Konfiguration
 
@@ -27,15 +30,18 @@ Voraussetzung ist, dass der Dongle vom Host (BlueZ) erkannt wird.
 Gerät einmalig als trusted markieren (GATT-Cache, empfohlen):
 
 ```bash
-docker exec -it addon_visomat bluetoothctl trust DD:67:E2:1E:C0:93
+docker exec -it addon_<slug> bluetoothctl trust DD:67:E2:1E:C0:93
 ```
+
+> `<slug>` ist der vollständige Add-on-Slug (z.B. `789c84b3_visomat`);
+> den Container-Namen mit `docker ps | grep visomat` ermitteln.
 
 ## Garmin-Sync (optional)
 
 `garmin_sync.enabled: true` setzen und einmalig den MFA-Login ausführen:
 
 ```bash
-docker exec -it addon_visomat python -m garmin_sync.main --login
+docker exec -it addon_<slug> python -m garmin_sync.main --login
 ```
 
 Tokens werden persistent unter `/data/garminconnect` gespeichert und bleiben

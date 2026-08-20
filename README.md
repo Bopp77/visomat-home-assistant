@@ -29,10 +29,13 @@ Gegen ein reales Gerät verifiziert:
 
 ## Voraussetzungen
 - Home Assistant mit BLE-Adapter (z.B. Intel AX201 oder USB-Dongle) und BlueZ ≥ 5.43.
-- Der BLE-Dongle wird vom Host-BlueZ verwaltet; die HA-Bluetooth-Integration und
-  dieses Add-on **teilen sich den Adapter** gleichzeitig (Multi-Client über D-Bus).
+- Der BLE-Dongle wird vom Host-BlueZ verwaltet (Zugriff via Host-D-Bus).
 - Das Gerät muss in BLE-Reichweite des Homeservers sein (~10–15 m).
 - Mosquitto-Broker (HA-Add-on `Mosquitto broker` oder extern).
+- **Hinweis zur Koexistenz:** Zwei unabhängige BLE-Clients auf einem Dongle
+  koexistieren nicht zuverlässig (siehe Abschnitt *Betriebsmodell*). In dieser
+  Referenzinstallation ist die HA-Bluetooth-Integration am Dongle deaktiviert
+  und die BLE-Waage wird on-demand betrieben.
 
 ## Installation als Home Assistant Add-on (empfohlen)
 
@@ -49,18 +52,15 @@ gepusht; der Supervisor lädt das passende Image und startet es.
    Geräts und ggf. den MQTT-Broker setzen, dann *Speichern*.
 4. **Start**: Tab *Info* → *Starten*. Log im Tab *Log* prüfen.
 
-> **Hinweis:** Das Add-on bezieht sein Image mit dem Tag `0.2.0` aus
-> `ghcr.io/bopp77/visomat-home-assistant`. Das Tag wird beim Release-Tag
-> `v0.2.0` von der CI erzeugt; vor dem ersten Release läuft nur die
-> Portainer-/Standalone-Variante.
+> **Hinweis:** Das Add-on bezieht sein Image mit dem Tag der aktuellen Version
+> (z.B. `0.2.6`) aus `ghcr.io/bopp77/visomat-home-assistant`. Die Tags erzeugt
+> die CI automatisch bei jedem Release-Tag `vX.Y.Z`.
 
-> **Bluetooth-Dongle-Sharing:** Das Add-on läuft mit `host_dbus: true` und
-> spricht das **Host-BlueZ** direkt über D-Bus an. Es startet keinen eigenen
-> `bluetoothd` und belegt den Dongle nicht exklusiv — die
-> HA-Bluetooth-Integration (z.B. für eine BLE-Waage) und das visomat-Gateway
-> können denselben USB-Dongle parallel nutzen. So kann der Dongle vom
-> Portainer-Server (192.168.178.102) auf die Home-Assistant-VM
-> (192.168.178.105) umziehen.
+> **Bluetooth-Zugriff:** Das Add-on läuft mit `host_dbus: true` und spricht das
+> **Host-BlueZ** direkt über D-Bus an. Es startet keinen eigenen `bluetoothd`.
+> Der Dongle wurde vom Portainer-Server (192.168.178.102) auf die
+> Home-Assistant-VM (192.168.178.105) umgezogen. Für den parallelen Betrieb mit
+> einer BLE-Waage gilt das Betriebsmodell im Abschnitt unten.
 
 ### Konfiguration (Add-on-Optionen)
 
@@ -88,9 +88,13 @@ Wenn `garmin_sync.enabled: true` gesetzt ist, wird einmalig ein interaktiver
 MFA-Login benötigt. Im Add-on-Container per `docker exec` auf dem Home-Assistant-Host:
 
 ```bash
-docker exec -it addon_visomat python -m garmin_sync.main --login
+docker exec -it addon_<slug> python -m garmin_sync.main --login
 # MFA-Code am Prompt eingeben; Tokens landen persistent unter /data/garminconnect
 ```
+
+> `<slug>` ist der vollständige Add-on-Slug (z.B. `789c84b3_visomat`), der
+> Container heißt `addon_789c84b3_visomat` (in neueren HA-Versionen
+> `app_789c84b3_visomat`). Mit `docker ps | grep visomat` ermitteln.
 
 Die Tokens bleiben über Add-on-Updates und Neustarts erhalten (`/data`-Volume).
 
@@ -152,6 +156,7 @@ Hinweis: Der `visomat-bt`-Container läuft mit `network_mode: host` (BLE via
 hci0) und erreicht den Mosquitto-Broker daher über dessen **Host-Adresse/IP**,
 nicht über einen Docker-DNS-Namen. In `config.yaml` ggf. `host` entsprechend
 setzen.
+
 ## Start (lokal / Entwicklung)
 ```bash
 docker compose up -d --build
@@ -200,8 +205,8 @@ Der Portainer-Stack wird durch das HA-Add-on ersetzt, damit der USB-BLE-Dongle
 vom Host-BlueZ der HA-VM verwaltet und mit der Bluetooth-Integration geteilt
 werden kann. Ablauf:
 
-1. **Dongle umstecken** vom Portainer-Server auf die HA-VM und dort als `hci0`
-   verifizieren (Realtek-Firmware liegt HAOS üblicherweise bei).
+1. **Dongle umstecken** vom Portainer-Server auf die HA-VM und dort als
+   Bluetooth-Adapter verifizieren (Realtek-Firmware liegt HAOS üblicherweise bei).
 2. **MQTT-User `visomat`** im HA-Mosquitto anlegen (Add-on → Mosquitto →
    Configuration → Users) und im Add-on als `username`/`password` eintragen.
 3. **Add-on installieren** (siehe oben), BLE-/Garmin-Optionen setzen, starten,
@@ -215,8 +220,8 @@ werden kann. Ablauf:
 ## Home Assistant
 Per MQTT-Discovery erscheint das Gerät **visomat comfort soft BT** mit:
 
-- Sensoren: Systole/Diastole/Mittlerer arterieller Druck (`mmHg`), Puls (`bpm`,
-  `device_class: heart_rate`), Messzeitpunkt, Benutzer-ID, Batterie (%), Feature
+- Sensoren: Systole/Diastole/Mittlerer arterieller Druck (`mmHg`), Puls (`bpm`),
+  Messzeitpunkt, Benutzer-ID, Batterie (%), Feature
 - Binär-Sensoren (diagnostisch): Körperbewegung, Manschette zu locker,
   unregelmäßiger Puls, Puls außerhalb Bereich, falsche Messposition
 
@@ -260,7 +265,7 @@ garmin_sync:
 ### Einmaliger Garmin-Login (MFA)
 Add-on:
 ```bash
-docker exec -it addon_visomat python -m garmin_sync.main --login
+docker exec -it addon_<slug> python -m garmin_sync.main --login
 ```
 Docker-Compose:
 ```bash
@@ -278,7 +283,7 @@ doppelt übertragen.
 
 ## Inbetriebnahme (Add-on)
 1. Add-on installieren/starten (siehe oben), Gerät einmalig als trusted markieren:
-   `docker exec -it addon_visomat bluetoothctl trust DD:67:E2:1E:C0:93`
+   `docker exec -it addon_<slug> bluetoothctl trust DD:67:E2:1E:C0:93`
 2. Messung am Gerät starten → Log prüfen (`connected to comfort soft BT`,
    `published measurement: ...`), Werte gegen
    Geräte-Display plausibilisieren.
