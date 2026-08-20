@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.5
+- Fix: `scanner.stop()`-Fehler (BlueZ `No discovery started` bei parallelen
+  Clients auf dem geteilten Adapter) verliert das gefundene Gerät nicht mehr
+  — es wird trotzdem zum Connect übergegangen. Verbessert die Erfassung im
+  Koexistenzbetrieb mit dem BLE-Scale-Add-on.
+
+
 ## 0.2.4
 - Fix: `_set_current_time` brach Sessions ab, wenn die Service-Liste nicht
   vollständig aufgelöst war (`Service Discovery has not been performed yet`);

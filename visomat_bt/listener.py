@@ -107,7 +107,13 @@ class Listener:
         try:
             await found.wait()
         finally:
-            await scanner.stop()
+            try:
+                await scanner.stop()
+            except Exception as exc:  # noqa: BLE001
+                # Transient BlueZ state (e.g. a concurrent client on the shared
+                # adapter already ended the discovery). The found device is
+                # still valid — proceed to the connect instead of losing it.
+                LOGGER.debug("scanner stop failed: %s", exc)
         return result[0] if result else None
 
     async def _wait_or_stop(self, delay: float) -> None:
