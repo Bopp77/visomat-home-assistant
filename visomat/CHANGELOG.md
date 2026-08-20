@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4
+- Fix: `_set_current_time` brach Sessions ab, wenn die Service-Liste nicht
+  vollständig aufgelöst war (`Service Discovery has not been performed yet`);
+  der Uhr-Write ist jetzt voll defensiv und loggt sichtbar (WARNING).
+- Debug: GATT-Dump (Services/Chars/Properties) bei Connect für die Analyse
+  des Zeit-Mechanismus.
+
+
 ## 0.2.3
 - Geräteuhr wird bei jedem erfolgreichen Connect gesetzt (Current Time Service
   0x2A2B) — das Gerät verliert Datum/Uhrzeit nach Batterie-Entnahme; so bleiben

@@ -90,6 +90,9 @@ class BleTransport:
             await client.connect()
         self._client = client
 
+        if LOGGER.isEnabledFor(logging.DEBUG):
+            self._log_gatt_services(client)
+
         try:
             async with asyncio.timeout(self.timeout):
                 await client.start_notify(BLOOD_PRESSURE_MEASUREMENT_UUID, self._measurement_handler)
@@ -107,6 +110,20 @@ class BleTransport:
         except (TimeoutError, BleakError):
             await self.close()
             raise
+
+    def _log_gatt_services(self, client: BleakClient) -> None:
+        """Dump the resolved GATT database for diagnostics (debug only)."""
+        try:
+            for service in client.services:
+                chars = ", ".join(
+                    f"{c.handle:#04x}:{c.uuid}"
+                    + ("[W]" if "write" in c.properties else "")
+                    + ("[N]" if "notify" in c.properties else "")
+                    for c in service.characteristics
+                )
+                LOGGER.debug("service %s chars: %s", service.uuid, chars)
+        except (BleakError, TimeoutError, OSError) as exc:
+            LOGGER.debug("gatt dump unavailable: %s", exc)
 
     async def _read_device_info(self, client: BleakClient) -> DeviceInfo:
         info = DeviceInfo(name=client.address)
@@ -137,9 +154,17 @@ class BleTransport:
 
         The visomat's internal clock resets when the battery is removed, which
         corrupts the measurement timestamps. Writing the current local time on
-        every (successful) connect keeps the clock in sync. Never fatal.
+        every (successful) connect keeps the clock in sync. This helper must
+        never abort the session — even a partially-resolved GATT database or a
+        rejected write is tolerated.
         """
-        if not self._has_uuid(CURRENT_TIME_UUID):
+        try:
+            characteristic = client.services.get_characteristic(CURRENT_TIME_UUID)
+        except (BleakError, TimeoutError, OSError) as exc:
+            LOGGER.debug("current time characteristic unavailable: %s", exc)
+            return
+        if characteristic is None:
+            LOGGER.debug("device does not expose Current Time (0x2A2B), clock not set")
             return
         now = datetime.now().astimezone().timetuple()
         payload = bytes(
@@ -159,8 +184,8 @@ class BleTransport:
         try:
             await client.write_gatt_char(CURRENT_TIME_UUID, payload)
             LOGGER.info("device clock set to %s", datetime.now().astimezone().isoformat(timespec="seconds"))
-        except (BleakError, TimeoutError) as exc:
-            LOGGER.debug("could not set device clock: %s", exc)
+        except (BleakError, TimeoutError, OSError) as exc:
+            LOGGER.warning("could not set device clock: %s", exc)
 
     def _has_uuid(self, uuid: str) -> bool:
         if self._client is None:
