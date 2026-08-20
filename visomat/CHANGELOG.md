@@ -1,6 +1,9 @@
 # Changelog
 
 ## 0.2.6
+- README: Betriebsmodell dokumentiert (visomat Dauerbetrieb + Waage on-demand
+  via switch.ble_scale_sync, Watchdog, Cleanup-Automation).
+
 - Watchdog gegen BlueZ "stuck discovery" (adaptiert aus BLE Scale Sync):
   nach N aufeinanderfolgenden Connect-/Discovery-Fehlern beendet sich der
   Prozess selbst; der Supervisor startet das Add-on frisch, wodurch der

@@ -73,6 +73,7 @@ gepusht; der Supervisor lädt das passende Image und startet es.
 | `visomat.ble.scan_interval_sec` | Rescan, wenn Gerät nicht erreichbar |
 | `visomat.ble.reconnect_delay_sec` | Pause zwischen Reconnect-Versuchen |
 | `visomat.ble.timeout_sec` | Connect/GATT-Timeout |
+| `visomat.ble.watchdog_max_failures` | Neustart nach N Connect-Fehlern (BlueZ-Stuck-Discovery); `0` = aus |
 | `visomat.mqtt.host` | Broker (HA-Add-on: `core-mosquitto`) |
 | `visomat.mqtt.*` | Broker-Port/Zugang, `base_topic` + Discovery-Prefix |
 | `garmin_sync.enabled` | Garmin-Connect-Sync aktivieren (siehe unten) |
@@ -92,6 +93,46 @@ docker exec -it addon_visomat python -m garmin_sync.main --login
 ```
 
 Die Tokens bleiben über Add-on-Updates und Neustarts erhalten (`/data`-Volume).
+
+## Betriebsmodell: visomat + BLE-Waage auf einem Dongle
+
+Wenn die **BLE-Waage** und das visomat-Gateway denselben USB-Dongle nutzen,
+gilt: **zwei unabhängige BLE-Add-ons auf einem Adapter koexistieren nicht
+zuverlässig.** Der Dauerbetrieb des Scale-Add-ons wedged die fragile
+GATT-Auflösung des visomat (bekannter BlueZ-„stuck discovery"-Bug, siehe
+[BLE Scale Sync Troubleshooting](https://blescalesync.dev/troubleshooting)).
+Erprobter Betriebsweg:
+
+- **visomat** läuft dauerhaft (Best-Effort). Ein **Watchdog**
+  (`visomat.ble.watchdog_max_failures`, Default 8, 0 = aus) beendet den Prozess
+  nach N aufeinanderfolgenden Connect-/Discovery-Fehlern; der Supervisor
+  startet das Add-on frisch (sauberer BlueZ-Zustand). Das Gerät puffert
+  Messungen und liefert sie beim nächsten erfolgreichen Connect nach — es geht
+  nichts verloren, nur verzögert.
+- **Waage (BLE Scale Sync)** läuft im **Einmal-Modus**
+  (`runtime.continuous_mode: false`): einmal wiegen, dann beendet sich das
+  Add-on selbst. Gestartet wird es manuell über den Supervisor-Switch
+  `switch.ble_scale_sync` (Einstellungen → Geräte & Dienste → in ein
+  Dashboard legen): **Switch AN** → auf die Waage steigen → Messung →
+  Add-on beendet sich → Switch geht automatisch auf AUS.
+- Eine kleine Automation hält das visomat nach einer Waagen-Sitzung gesund
+  (die Waage kann eine Verbindung im BlueZ hinterlassen, die den visomat
+  wedged):
+
+  ```yaml
+  trigger:
+    - platform: state
+      entity_id: switch.ble_scale_sync
+      to: "off"
+  action:
+    - service: hassio.addon_restart
+      data:
+        addon: 789c84b3_visomat
+  ```
+
+**Hinweis:** Bei dauerhaftem Parallelbetrieb beider Add-ons ist ein **zweiter
+BLE-Adapter** oder ein **ESP32-BLE-Proxy** für die Waage die sauberere Lösung
+(empfohlen in der BLE-Scale-Sync-Doku).
 
 ## Konfiguration (Standalone / Legacy-Docker)
 ```bash
