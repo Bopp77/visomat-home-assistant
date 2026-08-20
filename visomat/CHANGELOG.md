@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.6
+- Watchdog gegen BlueZ "stuck discovery" (adaptiert aus BLE Scale Sync):
+  nach N aufeinanderfolgenden Connect-/Discovery-Fehlern beendet sich der
+  Prozess selbst; der Supervisor startet das Add-on frisch, wodurch der
+  BlueZ-Zustand zurückgesetzt wird und gepufferte Messungen nachgeliefert
+  werden. Konfigurierbar via `visomat.ble.watchdog_max_failures` (Default 8,
+  0 = aus). Idle-bewusst: nur echte Radio-Fehler zählen.
+
+
 ## 0.2.5
 - Fix: `scanner.stop()`-Fehler (BlueZ `No discovery started` bei parallelen
   Clients auf dem geteilten Adapter) verliert das gefundene Gerät nicht mehr

@@ -23,12 +23,18 @@ class BleConfig:
     scan_interval_sec: float = 30.0
     reconnect_delay_sec: float = 5.0
     timeout_sec: float = 15.0
+    # Consecutive connect/discovery failures after which the process exits so
+    # the supervisor restarts it with a fresh BlueZ state (works around the
+    # "stuck discovery" BlueZ bug). 0 disables the watchdog.
+    watchdog_max_failures: int = 8
 
     def validate(self) -> None:
         if self.scan_timeout_sec <= 0:
             raise ValueError("ble.scan_timeout_sec must be > 0")
         if self.scan_interval_sec <= 0:
             raise ValueError("ble.scan_interval_sec must be > 0")
+        if self.watchdog_max_failures < 0:
+            raise ValueError("ble.watchdog_max_failures must be >= 0")
 
 
 @dataclass

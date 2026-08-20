@@ -10,6 +10,7 @@ visomat:
     scan_timeout_sec: 15
     scan_interval_sec: 30          # Rescan, wenn Gerät nicht erreichbar
     reconnect_delay_sec: 5         # Pause zwischen Reconnect-Versuchen
+    watchdog_max_failures: 8      # 0=aus: Neustart nach N Connect-Fehlern (BlueZ-Stuck-Discovery)
   mqtt:
     host: "core-mosquitto"
     port: 1883

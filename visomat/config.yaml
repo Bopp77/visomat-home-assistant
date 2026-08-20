@@ -1,5 +1,5 @@
 name: "visomat comfort soft BT Gateway"
-version: "0.2.5"
+version: "0.2.6"
 slug: visomat
 description: >-
   BLE-Gateway für das Blutdruckmessgerät visomat comfort soft BT
@@ -26,6 +26,7 @@ options:
       scan_interval_sec: 2
       reconnect_delay_sec: 1
       timeout_sec: 15
+      watchdog_max_failures: 8
     mqtt:
       host: "core-mosquitto"
       port: 1883
@@ -57,6 +58,7 @@ schema:
       scan_interval_sec: float
       reconnect_delay_sec: float
       timeout_sec: float
+      watchdog_max_failures: int
     mqtt:
       host: str
       port: port

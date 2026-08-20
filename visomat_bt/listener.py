@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import Awaitable, Callable
 
 from bleak import BleakScanner
@@ -54,14 +55,33 @@ class Listener:
         self._on_metadata = on_metadata
 
     async def run(self) -> None:
+        consecutive_failures = 0
+        threshold = self._cfg.ble.watchdog_max_failures
         while not self._stop.is_set():
             try:
                 await self._session()
+                # A completed session means the radio handled connect/discovery;
+                # reset the failure counter even without a new measurement.
+                consecutive_failures = 0
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 LOGGER.warning("session failed: %s", exc or type(exc).__name__, exc_info=exc is not None)
                 self._set_connected(False)
+                if threshold > 0:
+                    consecutive_failures += 1
+                    if consecutive_failures >= threshold:
+                        # BlueZ "stuck discovery" workaround (see BLE Scale Sync
+                        # docs): enough consecutive radio failures -> exit so the
+                        # supervisor restarts the add-on with a fresh stack. The
+                        # device buffers measurements and delivers them on the
+                        # next successful connect.
+                        LOGGER.warning(
+                            "watchdog: %d consecutive failures, exiting for a clean restart",
+                            consecutive_failures,
+                        )
+                        self._stop.set()
+                        os._exit(1)
             await self._wait_or_stop(self._cfg.ble.reconnect_delay_sec)
 
     async def _session(self) -> None:
